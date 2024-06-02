@@ -1,4 +1,3 @@
-import yaml
 import models
 import torch
 import data
@@ -10,9 +9,18 @@ optimizers = {'SGD': optim.SGD,
              'AdamW': optim.AdamW,
              'RMSprop': optim.RMSprop}
 
+'''
+model=dict{
+    dropout=True,
+    dropout_prob=0.5,
+    
+}
+'''
+
 def build_model(cfg):
-    model = models.ResNet18(num_classes=10)
-    model = model.cuda() # TODO: is it right?
+    model_params = cfg['model']['params']
+    model = mode_test.ResNet18(num_classes=10, **model_params)
+    model = model.cuda()
     return model
 
 def build_optim(model, cfg):

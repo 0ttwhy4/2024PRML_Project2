@@ -7,19 +7,29 @@ import os
 
 def load_data(cfg):
     # data augmentations
-    data_transforms = {
-        'train': transforms.Compose([
-            transforms.RandomResizedCrop(cfg['train']['input_size'], scale=(0.2, 1.0)),
-            transforms.RandomHorizontalFlip(),
+    
+    train_transforms = [
             transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ]),
-        'val': transforms.Compose([
+        ]
+    
+    valid_transforms = [
             transforms.Resize(cfg['val']['input_size']),
             transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ]),
+        ]
+    
+    if cfg['train']['transform']['crop']:
+        train_transforms.insert(0 ,transforms.RandomResizedCrop(cfg['train']['input_size'], scale=(0.2, 1.0)))
+    if cfg['train']['transform']['flip']:
+        p = cfg['train']['transform']['flip_p']
+        train_transforms.insert(1, transforms.RandomHorizontalFlip(p=p))
+    
+    data_transforms = {
+        'train': transforms.Compose(train_transforms),
+        'val': transforms.Compose(valid_transforms),
     }
+    
     ## The default dir is for the first task of large-scale deep learning
     ## For other tasks, you may need to modify the data dir or even rewrite some part of 'data.py'
     image_dataset_train = datasets.ImageFolder(os.path.join(cfg['data_dir'], 'train'), data_transforms['train'])

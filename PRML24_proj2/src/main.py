@@ -24,6 +24,9 @@ def train(model, train_loader,optimizer,criterion, logger):
     total_loss = 0.0
     total_correct = 0
     cnt = 0
+    static = torch.zeros((10,)).cuda()
+    logger.info(f'training size: {train_loader.__len__()} * {train_loader.batch_size} = {train_loader.__len__() * train_loader.batch_size}')
+    
     for idx, (inputs, labels) in enumerate(train_loader):
         inputs = inputs.cuda(non_blocking=True)
         labels = labels.cuda(non_blocking=True)
@@ -63,7 +66,9 @@ def valid(model, valid_loader, criterion, logger):
             gt[label] += torch.sum(labels.data == label)
             pred[label] += torch.sum((labels.data == label) & (predictions == label))
             
-    logger.debug('class acc: {}'.format((pred.data / gt.data).detach().cpu().numpy()))
+    acc_rounded = (pred.data / gt.data).detach().cpu().numpy() 
+    acc_rounded = [round(acc, 4) for acc in acc_rounded]
+    logger.debug('class acc: {}'.format(acc_rounded))
         
     epoch_loss = total_loss / len(valid_loader.dataset)
     epoch_acc = total_correct.double() / len(valid_loader.dataset)
@@ -109,7 +114,6 @@ if __name__ == '__main__':
         if valid_acc > best_acc:
             best_acc = valid_acc
             best_model = model
-            # save the model if you want to
             if args.save_model:
                 torch.save(best_model, os.path.join(work_dir, 'best_model.pt'))
         logger.info('Epoch Time: {}'.format(str(datetime.timedelta(seconds=int(time.time() - start_time)))))

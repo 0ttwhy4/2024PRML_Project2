@@ -28,4 +28,6 @@ def get_logger(log_dir):
     
     handler.setFormatter(formatter)
     logger.addHandler(handler)
+    logger.propagate = False
+    
     return logger
