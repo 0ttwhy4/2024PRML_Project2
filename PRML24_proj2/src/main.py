@@ -1,33 +1,25 @@
 import torch
-import torch.nn as nn
-import torch.optim as optim
-import data
-import models
 import os
 import time
 import argparse
 import datetime
+from tools.logger import get_logger
+import json
+from tools.plot import plot_curve
+from tools.build import from_cfg
+from tools.config import config as cfg
 
 ## Note that: here we provide a basic solution for training and validation.
 ## You can directly change it if you find something wrong or not good enough.
 
-
-
 def get_parser():
     parser = argparse.ArgumentParser()
-    
-    ## about data
-    parser.add_argument('--batch_size', type=int, default=64)
-    parser.add_argument('--data_dir', type=str, default="EuroSAT_PRML24/Task_A" ) ## You need to specify the data_dir first
-    parser.add_argument('--input_size', type=int, default=64)
-    
-    ## about training
-    parser.add_argument('--num_epochs', type=int, default=20)
-    parser.add_argument('--lr', type=float, default=0.01)
-    parser.add_argument('--momentum', type=float, default=0.9)
+    default_cfg = '/home/stu6/2024PRML_Project2/PRML24_proj2/src/tools/config.py'
+    parser.add_argument('--cfg', type=str, default=default_cfg)
+    parser.add_argument('--save_model', action='store_true')
     return parser
 
-def train(model, train_loader,optimizer,criterion):
+def train(model, train_loader,optimizer,criterion, logger):
     model.train(True)
     total_loss = 0.0
     total_correct = 0
@@ -46,16 +38,19 @@ def train(model, train_loader,optimizer,criterion):
         total_correct += torch.sum(predictions == labels.data)
         cnt += inputs.size(0)
         if idx % 50 == 0:
-            print(f'[TRAIN][{idx}/{len(train_loader)}] Loss={(total_loss/cnt):.4f}')
+            logger.info(f'[TRAIN][{idx}/{len(train_loader)}] Loss={(total_loss/cnt):.4f}')
     epoch_loss = total_loss / len(train_loader.dataset)
     epoch_acc = total_correct.double() / len(train_loader.dataset)
     return epoch_loss, epoch_acc.item()
 
 
-def valid(model, valid_loader, criterion):
+def valid(model, valid_loader, criterion, logger):
     model.train(False)
     total_loss = 0.0
     total_correct = 0
+    pred = torch.zeros(10).cuda()
+    gt = torch.zeros(10).cuda()
+
     for inputs, labels in valid_loader:
         inputs = inputs.cuda(non_blocking=True)
         labels = labels.cuda(non_blocking=True)
@@ -64,6 +59,12 @@ def valid(model, valid_loader, criterion):
         _, predictions = torch.max(outputs, 1)
         total_loss += loss.item() * inputs.size(0)
         total_correct += torch.sum(predictions == labels.data)
+        for label in range(0, 10):
+            gt[label] += torch.sum(labels.data == label)
+            pred[label] += torch.sum((labels.data == label) & (predictions == label))
+            
+    logger.debug('class acc: {}'.format((pred.data / gt.data).detach().cpu().numpy()))
+        
     epoch_loss = total_loss / len(valid_loader.dataset)
     epoch_acc = total_correct.double() / len(valid_loader.dataset)
     return epoch_loss, epoch_acc.item()
@@ -75,36 +76,46 @@ if __name__ == '__main__':
     parser = get_parser()
     args = parser.parse_args()
     
-    ## model initialization
-    model = models.ResNet18(num_classes=10)
-    model = model.cuda()
-
-    ## data preparation
-    train_loader, valid_loader = data.load_data(args)
-
-    ## optimizer
-    optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
-
-    ## loss function
-    criterion = nn.CrossEntropyLoss()
+    work_dir = cfg['work_dir']
+    if not os.path.exists(work_dir):
+        os.mkdir(work_dir)
+    model, optimizer, criterion, train_loader, valid_loader = from_cfg(cfg)
+    logger = get_logger(os.path.join(work_dir, 'logging.log'))
+    logger.debug("model config:\n %s", json.dumps(cfg, indent=4))
+    
     best_acc = 0.0
     
-    for epoch in range(args.num_epochs):
+    tr_loss = []
+    tr_acc = []
+    val_loss = []
+    val_acc = []
+    num_epochs = cfg['train']['num_epochs']
+    
+    for epoch in range(1, num_epochs+1):
         start_time = time.time()
-        print('*' * 100)
-        print(f'Epoch: {epoch}/{args.num_epochs}')
+        logger.debug('*' * 80)
+        logger.info(f'Epoch: {epoch}/{num_epochs}')
         
-        train_loss, train_acc = train(model, train_loader,optimizer,criterion)
-        print(f"[TRAIN][Epoch {epoch}] Loss={train_loss:.4f}, Acc={train_acc:.4f}")
+        train_loss, train_acc = train(model, train_loader, optimizer, criterion, logger)
+        logger.info(f"[TRAIN][Epoch {epoch}] Loss={train_loss:.4f}, Acc={train_acc:.4f}")
+        tr_loss.append(train_loss)
+        tr_acc.append(train_acc)
         
-        valid_loss, valid_acc = valid(model, valid_loader,criterion)
-        print(f"[VAL][Epoch {epoch}] Loss={valid_loss:.4f}, Acc={valid_acc:.4f}")
+        valid_loss, valid_acc = valid(model, valid_loader, criterion, logger)
+        logger.info(f"[VAL][Epoch {epoch}] Loss={valid_loss:.4f}, Acc={valid_acc:.4f}")
+        val_loss.append(valid_loss)
+        val_acc.append(valid_acc)
         
         if valid_acc > best_acc:
             best_acc = valid_acc
             best_model = model
             # save the model if you want to
-            # torch.save(best_model, 'best_model.pt')
-        print('Epoch Time:', str(datetime.timedelta(seconds=int(time.time() - start_time))))
+            if args.save_model:
+                torch.save(best_model, os.path.join(work_dir, 'best_model.pt'))
+        logger.info('Epoch Time: {}'.format(str(datetime.timedelta(seconds=int(time.time() - start_time)))))
+        
+    plot_dir = os.path.join(work_dir, 'curve.png')    
+    plot_curve(tr_loss, tr_acc, val_loss, val_acc, num_epochs, plot_dir)
 
-    print('Best Acc:', best_acc)
+    logger.debug('*' * 100)
+    logger.info('Best Acc: {}'.format(best_acc))
