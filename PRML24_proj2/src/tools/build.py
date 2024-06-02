@@ -19,7 +19,7 @@ model=dict{
 
 def build_model(cfg):
     model_params = cfg['model']['params']
-    model = mode_test.ResNet18(num_classes=10, **model_params)
+    model = models.ResNet18(num_classes=10, **model_params)
     model = model.cuda()
     return model
 
