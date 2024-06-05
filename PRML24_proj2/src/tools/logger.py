@@ -13,7 +13,6 @@ class MyFormatter(logging.Formatter):
         }
 
     def format(self, record):
-        # 根据记录的级别选择合适的格式
         log_fmt = self.formats.get(record.levelno)
         return log_fmt.format(record)
     

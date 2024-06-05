@@ -8,9 +8,13 @@ import json
 from tools.plot import plot_curve
 from tools.build import from_cfg
 from tools.config import config as cfg
+from tools.config import ensemble_config as ecfg
 
 ## Note that: here we provide a basic solution for training and validation.
 ## You can directly change it if you find something wrong or not good enough.
+
+torch.manual_seed(3407)
+torch.cuda.manual_seed(3407) 
 
 def get_parser():
     parser = argparse.ArgumentParser()
@@ -74,6 +78,56 @@ def valid(model, valid_loader, criterion, logger):
     epoch_acc = total_correct.double() / len(valid_loader.dataset)
     return epoch_loss, epoch_acc.item()
 
+def val_ensemble(models, weights, val_loader, criterion):
+    for model in models:
+        model.train(False)
+    total_loss = 0.0
+    total_correct = 0
+    for inputs, labels in val_loader:
+        inputs = inputs.to('cuda')
+        labels = labels.to('cuda')
+        outputs = 0
+        for i, model in enumerate(models):
+            outputs += i * model(inputs)
+        outputs /= weights.sum()
+        loss = criterion(outputs, labels)
+        _, predictions = torch.max(outputs, 1)
+        total_loss += loss.item() * inputs.size(0)
+        total_correct += torch.sum(predictions == labels.data)
+        
+    val_loss = total_loss / len(val_loader.dataset)
+    val_acc = total_correct.double() / len(val_loader.dataset)
+    return val_loss, val_acc.item()
+
+def ensemble_predict(models:list, val_loader, criterion):
+    for model in models:
+        model.train(False)
+    total_correct = 0
+    total_loss = 0
+    for inputs, labels in val_loader:
+        inputs = inputs.cuda(non_blocking=True)
+        labels = labels.cuda(non_blocking=True)
+        outputs = 0
+        outputs = outputs.to('cuda')
+        for model in models:
+            outputs += model(inputs)
+        outputs /= len(models)
+        loss = criterion(outputs, labels)
+        _, predictions = torch.max(outputs, 1)
+        total_loss += loss.item() * inputs.size(0)
+        total_correct += torch.sum(predictions == labels.data)
+    
+    epoch_loss = total_loss / len(val_loader.dataset)
+    epoch_acc = total_correct.double() / len(val_loader.dataset)
+    return epoch_loss, epoch_acc.item()
+
+def load_ensemble(model_paths):
+    models = []
+    for path in model_paths:
+        model = torch.load(path)
+        model.to('cuda')
+        models.append(model)
+    return models
 
 if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -95,6 +149,7 @@ if __name__ == '__main__':
     val_loss = []
     val_acc = []
     num_epochs = cfg['train']['num_epochs']
+    best_epoch = 0
     
     for epoch in range(1, num_epochs+1):
         start_time = time.time()
@@ -114,6 +169,7 @@ if __name__ == '__main__':
         if valid_acc > best_acc:
             best_acc = valid_acc
             best_model = model
+            best_epoch = epoch
             if args.save_model:
                 torch.save(best_model, os.path.join(work_dir, 'best_model.pt'))
         logger.info('Epoch Time: {}'.format(str(datetime.timedelta(seconds=int(time.time() - start_time)))))
@@ -122,4 +178,4 @@ if __name__ == '__main__':
     plot_curve(tr_loss, tr_acc, val_loss, val_acc, num_epochs, plot_dir)
 
     logger.debug('*' * 100)
-    logger.info('Best Acc: {}'.format(best_acc))
+    logger.info('Best Epoch: {} | Best Acc: {}'.format(best_epoch, best_acc))

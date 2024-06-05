@@ -8,8 +8,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-torch.manual_seed(3407) # is all you need
-
 class BasicBlock(nn.Module):
     expansion = 1
 

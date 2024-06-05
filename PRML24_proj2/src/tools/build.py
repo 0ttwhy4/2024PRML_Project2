@@ -1,6 +1,6 @@
 import models
 import torch
-import data
+from tools import data
 import torch.nn as nn
 import torch.optim as optim
 
@@ -8,14 +8,6 @@ optimizers = {'SGD': optim.SGD,
              'Adam': optim.Adam,
              'AdamW': optim.AdamW,
              'RMSprop': optim.RMSprop}
-
-'''
-model=dict{
-    dropout=True,
-    dropout_prob=0.5,
-    
-}
-'''
 
 def build_model(cfg):
     model_params = cfg['model']['params']
@@ -26,8 +18,7 @@ def build_model(cfg):
 def build_optim(model, cfg):
     optim_name = cfg['optimizer']['type']
     params = cfg['optimizer']['param']
-    optimizer = optimizers[optim_name](model.parameters(), 
-                                      **params)
+    optimizer = optimizers[optim_name](model.parameters(), **params)
     return optimizer
 
 def from_cfg(cfg):
