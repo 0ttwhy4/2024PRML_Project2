@@ -1,7 +1,7 @@
 import datetime 
 
 config = {
-    'model': dict(type='resnet18',
+    'model': dict(type='resnet50',
                   params=dict(
                       dropout=True,
                       dropout_prob=0.2
@@ -13,7 +13,7 @@ config = {
                       betas=(0.9, 0.999),
                       eps=1e-8,
                     )),
-    'train': dict(num_epochs=100,
+    'train': dict(num_epochs=150,
                   input_size=64,
                   batch_size=128,
                   transform=dict(crop=True,

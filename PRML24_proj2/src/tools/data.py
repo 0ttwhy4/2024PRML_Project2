@@ -39,7 +39,7 @@ def load_labeled(cfg):
     if transform_cfg['gaussian_blur']:
         kernel_size = transform_cfg['kernel_size']
         sigma = transform_cfg['sigma']
-        p = transform_cfg['gaussian_blur_p']  # 高斯模糊的概率
+        p = transform_cfg['gaussian_blur_p']  # Probability of applying Gaussian blur
         train_transforms.insert(pivot, transforms.RandomApply([transforms.GaussianBlur(kernel_size, sigma)], p=p))
         pivot += 1
     

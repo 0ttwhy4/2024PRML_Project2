@@ -1,5 +1,4 @@
 import models
-import torch
 from tools import data
 import torch.nn as nn
 import torch.optim as optim
@@ -9,7 +8,11 @@ optimizers = {'SGD': optim.SGD,
              'AdamW': optim.AdamW,
              'RMSprop': optim.RMSprop}
 
+model_names = {'resnet18': models.ResNet18,
+               'resnet50': models.ResNet50}
+
 def build_model(cfg):
+    model_name = cfg['model']['type']
     model_params = cfg['model']['params']
     model = models.ResNet18(num_classes=10, **model_params)
     model = model.cuda()

@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 
 def plot_curve(training_loss, training_accuracy, val_loss, val_accuracy, num_epochs, save_dir):
     epochs = range(1, num_epochs+1)
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(num_epochs/10, 10))
     
     ax1.plot(epochs, training_loss, label='Training Loss', marker='o')
     ax1.plot(epochs, val_loss, label='Validation Loss', marker='o')

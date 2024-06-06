@@ -13,9 +13,6 @@ from config.unlabel_config import ensemble_config as ecfg
 ## Note that: here we provide a basic solution for training and validation.
 ## You can directly change it if you find something wrong or not good enough.
 
-torch.manual_seed(3407)
-torch.cuda.manual_seed(3407) 
-
 def get_parser():
     parser = argparse.ArgumentParser()
     default_cfg = '/home/stu6/2024PRML_Project2/PRML24_proj2/src/tools/config.py'
