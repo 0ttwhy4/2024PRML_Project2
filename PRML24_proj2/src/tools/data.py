@@ -5,7 +5,7 @@ import os
 ## Note that: here we provide a basic solution for loading data and transforming data.
 ## You can directly change it if you find something wrong or not good enough.
 
-def load_data(cfg):
+def load_labeled(cfg):
     # data augmentations
     
     train_transforms = [
@@ -48,10 +48,9 @@ def load_data(cfg):
         'val': transforms.Compose(valid_transforms),
     }
     
-    print(data_transforms['train'])
     ## The default dir is for the first task of large-scale deep learning
     ## For other tasks, you may need to modify the data dir or even rewrite some part of 'data.py'
-    image_dataset_train = datasets.ImageFolder(os.path.join(cfg['data_dir'], 'train'), data_transforms['train'])
+    image_dataset_train = datasets.ImageFolder(os.path.join(cfg['data_dir'], 'train_labeled'), data_transforms['train'])
     image_dataset_valid = datasets.ImageFolder(os.path.join(cfg['data_dir'], 'val'), data_transforms['val'])
     
     train_loader = DataLoader(image_dataset_train, batch_size=cfg['train']['batch_size'], shuffle=True, num_workers=4)

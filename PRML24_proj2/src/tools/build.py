@@ -25,6 +25,6 @@ def from_cfg(cfg):
     model = build_model(cfg)
     optimizer = build_optim(model, cfg)
     criterion = nn.CrossEntropyLoss()
-    train_loader, valid_loader = data.load_data(cfg)
+    train_loader, valid_loader = data.load_labeled(cfg)
     return model, optimizer, criterion, train_loader, valid_loader
     

@@ -7,8 +7,8 @@ from tools.logger import get_logger
 import json
 from tools.plot import plot_curve
 from tools.build import from_cfg
-from tools.config import config as cfg
-from tools.config import ensemble_config as ecfg
+from config.unlabel_config import config as cfg
+from config.unlabel_config import ensemble_config as ecfg
 
 ## Note that: here we provide a basic solution for training and validation.
 ## You can directly change it if you find something wrong or not good enough.
@@ -100,6 +100,7 @@ def val_ensemble(models, weights, val_loader, criterion):
     return val_loss, val_acc.item()
 
 def ensemble_predict(models:list, val_loader, criterion):
+    # TODO: ?
     for model in models:
         model.train(False)
     total_correct = 0
