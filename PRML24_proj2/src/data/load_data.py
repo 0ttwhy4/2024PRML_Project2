@@ -5,6 +5,17 @@ import os
 ## Note that: here we provide a basic solution for loading data and transforming data.
 ## You can directly change it if you find something wrong or not good enough.
 
+class2label = {'AnnualCrop': 0, 
+               'Forest': 1, 
+               'HerbaceousVegetation': 2, 
+               'Highway': 3, 
+               'Industrial': 4, 
+               'Pasture': 5, 
+               'PermanentCrop': 6, 
+               'Residential': 7, 
+               'River': 8, 
+               'SeaLake': 9}
+
 def load_labeled(cfg):
     # data augmentations
     
@@ -23,6 +34,9 @@ def load_labeled(cfg):
     pivot = 1
     if transform_cfg['crop']:
         train_transforms.insert(pivot ,transforms.RandomResizedCrop(cfg['train']['input_size'], scale=(0.2, 1.0)))
+        pivot += 1
+    else:
+        train_transforms.insert(pivot, transforms.Resize(cfg['trian']['input_size']))
         pivot += 1
     if transform_cfg['h_flip']:
         p = transform_cfg['h_flip_p']
