@@ -68,45 +68,12 @@ def valid(model, valid_loader, logger):
     epoch_acc = total_correct.double() / len(valid_loader.dataset)
     return epoch_loss, epoch_acc.item()
 
-####################################################
-
-def sharpen(labels, temp):
-    sharpen_labels = torch.pow(labels, 1.0/temp)
-    sharpen_labels /= (torch.sum(sharpen_labels, dim=1).view(-1, 1))
-    return sharpen_labels
-
-def generate_label(model, dataloader, save_label_path, logger, k, temp):
-    # before generating labels, first validate the performance of teacher models
-    pivot = 0
-    label_num = 0
-    for inputs, img_name in dataloader:
-        pivot += 1
-        if pivot % 10 == 0:
-            logger.info('processing batch {}/{}'.format(pivot, len(dataloader)))
-        inputs = inputs.cuda(non_blocking=True)
-        outputs = model(inputs)
-        outputs = softmax(outputs, dim=1)
-        outputs = outputs.view(outputs.size(0)//k, k, outputs.size(1))
-        outputs = torch.sum(outputs, dim=1)
-        labels = outputs / k
-        labels = sharpen(labels, temp)
-        labels = labels.detach().cpu()
-        for i, label in enumerate(labels):
-            label_num += 1
-            file = img_name[i*k] + '.pt'
-            save_path = os.path.join(save_label_path, file)
-            torch.save(label, save_path)
-    logger.info('finish labeling {} images in total!'.format(label_num))
-    
-#########################################################
-
 def train_teacher(model, 
                   cfg,  
                   work_dir, 
                   logger, 
                   save_model, 
-                  save_name='best_model',
-                  generate_label=False):
+                  save_name='best_model'):
     
     task = 'teacher'
     optimizer, criterion, train_loader, valid_loader, scheduler = build_tools(model, cfg, task)
@@ -147,25 +114,3 @@ def train_teacher(model,
     plot_dir = os.path.join(work_dir, 'curve.png')
     
     plot_curve(tr_loss, tr_acc, val_loss, val_acc, train_epochs, plot_dir)
-    
-    #########################################################
-    if generate_label:
-        data_dir = cfg['data_dir']
-        
-        transform = Transform()
-        unlabel_transform = transform(cfg['assign_label']['transform'])
-        
-        unlabeled_path = os.path.join(data_dir, 'train_unlabeled', 'data')
-        save_label_path = os.path.join(data_dir, 'train_unlabeled', 'pseudo_label_regenerate')
-        if not os.path.exists(save_label_path):
-            os.mkdir(save_label_path)
-        unlabeled_data = UnlabeledDataset(transform=unlabel_transform, 
-                                        data_dir=unlabeled_path, 
-                                        K=2)
-        
-        dataloader = DataLoader(unlabeled_data, 
-                                batch_size=cfg['assign_label']['batch_size'], 
-                                shuffle=False, # DO NOT SHUFFLE
-                                num_workers=4)
-        
-        generate_label(best_model, dataloader, '/home/stu6/EuroSAT_PRML24/Task_B/train_unlabeled/pseudo_label_regenerate', logger, 2, 5.0)
