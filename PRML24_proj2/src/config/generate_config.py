@@ -1,0 +1,18 @@
+config = {
+    'teacher_dir': '/home/stu6/2024PRML_Project2/teachers',
+    'data_dir': '/home/stu6/EuroSAT_PRML24/Task_B',
+    'work_dir': '/home/stu6/2024PRML_Project2/TaskB',
+    'assign_label': dict(batch_size=64,
+                         T=5.0,
+                         K=2,
+                         transform=dict(crop=True,
+                                        input_size=64,
+                                        h_flip=True,
+                                        h_flip_p=0.3,
+                                        v_flip=True,
+                                        v_flip_p=0.3,
+                                        gaussian_blur=False,
+                                        kernel_size=11,
+                                        sigma=5,
+                                        gaussian_blur_p=0.1)),
+}

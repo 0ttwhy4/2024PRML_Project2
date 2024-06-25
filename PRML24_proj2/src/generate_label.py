@@ -2,12 +2,13 @@ import torch
 from torchvision.datasets import ImageFolder
 from torch.nn.functional import softmax
 from torch.utils.data import DataLoader
-from config.ssl_config import config as cfg
-from data.dataset import UnlabeledDataset
+from config.generate_config import config as cfg
+from data.mixmatch_dataset import UnlabeledDataset
 from data.transform import Transform
 from tools.logger import get_logger
 import os
 import json
+import datetime
 
 
 # generate pseudo label for the unlabeled dataset using pretrained teacher models
@@ -23,8 +24,8 @@ def load_models(model_path):
         models.append(model)
     return models
     
-def sharpen(labels, T):
-    sharpen_labels = torch.pow(labels, 1.0/T)
+def sharpen(labels, temp):
+    sharpen_labels = torch.pow(labels, 1.0/temp)
     sharpen_labels /= (torch.sum(sharpen_labels, dim=1).view(-1, 1))
     return sharpen_labels
 
@@ -45,9 +46,9 @@ def val_teacher(models: list, val_loader, criterion, logger):
     
     val_loss = total_loss / len(val_loader.dataset)
     val_acc = total_correct.double() / len(val_loader)
-    logger.info('val loss: {} | acc: {%.2f}'.format(val_loss, val_acc))
+    logger.info('val loss: {} | acc: {:.4f}'.format(val_loss, val_acc))
 
-def generate_label(dataloader, save_label_path, logger):
+def generate_label(model, dataloader, save_label_path, logger, k, temp):
     # before generating labels, first validate the performance of teacher models
     pivot = 0
     label_num = 0
@@ -59,14 +60,14 @@ def generate_label(dataloader, save_label_path, logger):
         outputs = 0
         for model in models:
             outputs += softmax(model(inputs), dim=1)
-        outputs = outputs.view(outputs.size(0)//K, K, outputs.size(1))
+        outputs = outputs.view(outputs.size(0)//k, k, outputs.size(1))
         outputs = torch.sum(outputs, dim=1)
-        labels = outputs / (len(models) * K)
-        labels = sharpen(labels, T, logger)
+        labels = outputs / (len(models) * k)
+        labels = sharpen(labels, temp)
         labels = labels.detach().cpu()
         for i, label in enumerate(labels):
             label_num += 1
-            file = img_name[i*K] + '.pt'
+            file = img_name[i*k] + '.pt'
             save_path = os.path.join(save_label_path, file)
             torch.save(label, save_path)
     logger.info('finish labeling {} images in total!'.format(label_num))
@@ -74,43 +75,43 @@ def generate_label(dataloader, save_label_path, logger):
 if __name__ == '__main__':
     
     work_dir = cfg['work_dir']
+    data_dir = cfg['data_dir']
+    work_dir = os.path.join(work_dir, datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
     if not os.path.exists(work_dir):
         os.mkdir(work_dir)
+    print(work_dir)
     logger = get_logger(os.path.join(work_dir, 'logging.log'))
     
-    label_config = cfg['assign_label']
-    unlabeled_config = cfg['unlabeled_dataset']
-    data_dir = cfg['data_dir']
+    k = cfg['assign_label']['K']
+    temp = cfg['assign_label']['T']
     
-    K = unlabeled_config['K']
-    T = label_config['T']
-    
-    models = load_models(label_config['teacher_file'])
+    models = load_models(cfg['teacher_dir'])
     logger.info('loading {} models for ensemble labeling'.format(len(models)))
     
     transform = Transform()
-    unlabel_transform = transform(unlabeled_config['transform'])
+    unlabel_transform = transform(cfg['assign_label']['transform'])
     
     unlabeled_path = os.path.join(data_dir, 'train_unlabeled', 'data')
-    save_label_path = os.path.join(data_dir, 'train_unlabeled', 'pseudo_label')
+    save_label_path = os.path.join(data_dir, 'train_unlabeled', 'pseudo_label_regenerate')
+    if not os.path.exists(save_label_path):
+        os.mkdir(save_label_path)
     unlabeled_data = UnlabeledDataset(transform=unlabel_transform, 
                                       data_dir=unlabeled_path, 
-                                      K=K)
+                                      K=k)
     
     dataloader = DataLoader(unlabeled_data, 
-                            batch_size=label_config['batch_size'], 
+                            batch_size=cfg['assign_label']['batch_size'], 
                             shuffle=False, # DO NOT SHUFFLE
                             num_workers=4)
     
-    logger.debug('labeling config:\n %s', json.dumps(label_config, indent=4))
-    logger.debug('unlabeled set config:\n %s', json.dumps(unlabeled_config, indent=4))
+    logger.debug('labeling config:\n %s', json.dumps(cfg, indent=4))
     
     criterion = torch.nn.CrossEntropyLoss()
     val_path = os.path.join(data_dir, 'val')
-    val_transform = transform(cfg['val']['transform'])
+    val_transform = transform(cfg['assign_label']['transform'])
     val_dataset = ImageFolder(val_path, val_transform)
     val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=4)
     
     val_teacher(models, val_loader, criterion, logger)
     
-    generate_label(dataloader, save_label_path, logger)
+    generate_label(dataloader, save_label_path, logger, k, temp)
