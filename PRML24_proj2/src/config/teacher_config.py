@@ -53,6 +53,6 @@ config = {
     #                                    kernel_size=11,
     #                                    sigma=5,
     #                                    gaussian_blur_p=0.1)),
-    'data_dir': '/home/stu6/EuroSAT_PRML24/Task_A',
-    'work_dir': '/home/stu6/2024PRML_Project2/TaskA'
+    'data_dir': '/home/stu6/EuroSAT_PRML24/Task_B',
+    'work_dir': '/home/stu6/2024PRML_Project2/TaskB'
 }

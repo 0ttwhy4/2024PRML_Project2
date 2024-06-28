@@ -31,40 +31,42 @@ def load_cfg(config_file_path):
             config_dict[key] = getattr(config, key)
     return config_dict['config']
 
-def build_teacher_model(model_cfg, model_path=None):
+# def build_teacher_model(model_cfg, model_path=None):
+#    
+#    if isinstance(model_path, str) and os.path.isfile(model_path):
+#        model = torch.load(model_path)
+#        model = model.cuda()
+#        return model
+#    
+#    model_name = model_cfg['type']
+#    model_params = model_cfg['params']
+#    
+#    if model_cfg['binary_class']:
+#        model = []
+#        for _ in range(10):
+#            bn_model = model_names[model_name]
+#            bn_model = model(num_classes=1, **model_params)
+#            bn_model = bn_model.cuda()
+#            model.append(bn_model)
+#        return model
+#    else:
+#        model = model_names[model_name]
+#        model = model(num_classes=10, **model_params)
+#        model = model.cuda()
+#        return model
+
+def build_model(model_cfg, model_path=None):
     
     if isinstance(model_path, str) and os.path.isfile(model_path):
         model = torch.load(model_path)
-        model = model.cuda()
-        return model
-    
-    model_name = model_cfg['type']
-    model_params = model_cfg['params']
-    
-    if model_cfg['binary_class']:
-        model = []
-        for _ in range(10):
-            bn_model = model_names[model_name]
-            bn_model = model(num_classes=1, **model_params)
-            bn_model = bn_model.cuda()
-            model.append(bn_model)
-        return model
-    else:
-        model = model_names[model_name]
-        model = model(num_classes=10, **model_params)
         model = model.cuda()
         return model
 
-def build_student_model(model_cfg, model_path=None):
-    if isinstance(model_path, str) and os.path.isfile(model_path):
-        model = torch.load(model_path)
-        model = model.cuda()
-        return model
     model_name = model_cfg['type']
     model_params = model_cfg['params']
+    
     model = model_names[model_name]
     model = model(num_classes=10, **model_params)
-    model = model.cuda()
     return model   
 
 def build_optim(model, **optim_param):
@@ -148,7 +150,17 @@ def build_tools(model, cfg, task):
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, **cfg['train']['scheduler'])
     return optimizer, criterion, train_loader, valid_loader, scheduler
 
-def build_finetune(model, cfg):
+def build_finetune(model, cfg, logger):
+    
+    for param in model.parameters():
+        param.requires_grad = False
+    for param in model.layer4.parameters():
+        param.requires_grad = True
+    logger.info('layer4 is activated!')
+    for param in model.fc.parameters():
+        param.requires_grad = True
+    logger.info('fc layer is activated!')
+    
     finetune_param = cfg['finetune']
     optim_type = finetune_param['optimizer']['type']
     optim_param = finetune_param['optimizer']['param']

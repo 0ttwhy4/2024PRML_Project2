@@ -2,14 +2,13 @@ import os
 import datetime
 import json
 import argparse
-from tools.train_teacher import train_teacher
-from tools.train_student import train_student, finetune
-from tools.build import build_student_model, build_teacher_model, load_cfg
+from tools.train import train, finetune
+from tools.build import build_model, load_cfg, build_tools
 from tools.logger import get_logger
 
 def get_parser():
     parser = argparse.ArgumentParser()
-    default_cfg = '/home/stu6/2024PRML_Project2/PRML24_proj2/src/config/student_config.py'
+    default_cfg = '/home/stu6/2024PRML_Project2/PRML24_proj2/src/config/teacher_config.py'
     parser.add_argument('--cfg', type=str, default=default_cfg)
     parser.add_argument('--save_model', action='store_true')
     parser.add_argument('--task', type=str, default='teacher', help="'teacher'/'student'")
@@ -17,6 +16,7 @@ def get_parser():
     return parser
 
 if __name__ == '__main__':
+    
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
     parser = get_parser()
@@ -36,11 +36,22 @@ if __name__ == '__main__':
     
     task = args.task
     save_model = args.save_model
-    if task == 'teacher':
-        model = build_teacher_model(cfg['model'])
-        train_teacher(model, cfg, work_dir, logger, args.save_model, save_name='teacher_model')
-    elif task == 'student':
-        model = build_student_model(cfg['model'])
-        best_model = train_student(model, cfg, work_dir, logger, save_model, save_name='student_model')
-        if cfg['finetune']['finetuning']:
-            finetune(best_model, cfg, logger, work_dir, save_model)
+    model = build_model(cfg['model'])
+    model = model.cuda()
+    optimizer, criterion, train_loader, valid_loader, scheduler = build_tools(model, cfg, task)
+    
+    best_model = train(model, 
+                       cfg,
+                       optimizer,
+                       criterion,
+                       train_loader,
+                       valid_loader,
+                       scheduler,
+                       work_dir, 
+                       logger, 
+                       save_model, 
+                       task,
+                       save_name='student_model')
+    
+    if 'finetune' in cfg.keys() and cfg['finetune']['finetuning']:
+        finetune(best_model, cfg, logger, work_dir, save_model)
